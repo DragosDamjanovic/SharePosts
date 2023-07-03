@@ -1,5 +1,8 @@
 <?php
 class Users extends Controller {
+    protected $postModel;
+    protected $userModel;
+
     public function __construct() {
         $this->userModel = $this->model('user');
     }
@@ -163,7 +166,7 @@ class Users extends Controller {
         $_SESSION['user_id'] = $user->id;
         $_SESSION['user_email'] = $user->email;
         $_SESSION['user_name'] = $user->name;
-        redirect('pages/index');
+        redirect('posts');
     }
 
     public function logout() {
@@ -174,11 +177,70 @@ class Users extends Controller {
         redirect('users/login');
     }
 
-    public function isLoggedIn() {
-        if (isset($_SESSION['user_id'])) {
-            return true;
+    public function profile()
+    {
+        // Get posts
+        $posts = $this->userModel->getUserPosts($_SESSION['user_id']);
+
+        $data = [
+            'posts' => $posts
+        ];
+
+        $this->view('users/profile', $data);
+    }
+
+    public function editUserProfile($id)
+    {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            // Sanitize POST array
+            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_STRING);
+
+            $data = [
+                'id' => $id,
+                'name' => trim($_POST['name']),
+                'email' => trim($_POST['email']),
+                'password' => trim($_POST['password']),
+                'email_err' => '',
+                'name_err' => '',
+                'password_err' => ''
+            ];
+
+            // Validate data
+            if (empty($data['email'])) {
+                $data['email_err'] = 'Please enter email';
+            }
+            if (empty($data['name'])) {
+                $data['name_err'] = 'Please enter name';
+            }
+            if (empty($data['password'])) {
+                $data['password_err'] = 'Please enter password';
+            }
+
+            // Make sure no errors
+            if (empty($data['email_err']) && empty($data['name_err']) && empty($data['password_err'])) {
+                // Validated
+                if ($this->userModel->updatePost($data)) {
+                    flash('user_message', 'User Profile Updated');
+                    redirect('posts');
+                } else {
+                    die('Something went wrong');
+                }
+            } else {
+                // Load view with errors
+                $this->view('users/edit', $data);
+            }
         } else {
-            return false;
+            // Get existing data from model
+            $user = $this->userModel->getUserById($id);
+
+            $data = [
+                'id' => $id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'password' => $user->password
+            ];
+
+            $this->view('users/edit', $data);
         }
     }
 }
